@@ -1,9 +1,12 @@
+locals {
+  environment = terraform.workspace
+}
 
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "6.6.1"
 
-  name = var.aws_vpc_name
+  name = "${var.aws_vpc_name}-${local.environment}"
   cidr = var.aws_vpc_cidr
 
   azs             = var.aws_vpc_azs
@@ -13,25 +16,30 @@ module "vpc" {
   enable_nat_gateway = true
   enable_vpn_gateway = true
 
-  tags = merge(var.aws_project_tags, { "kubernetes.io/cluster/${var.aws_eks_name}" = "shared" })
+  tags = merge(
+    var.aws_project_tags,
+    {
+      Environment                                                      = local.environment
+      "kubernetes.io/cluster/${var.aws_eks_name}-${local.environment}" = "shared"
+    }
+  )
 
   public_subnet_tags = {
-    "kubernetes.io/cluster/${var.aws_eks_name}" = "shared"
-    "kubernetes.io/role/elb"                    = 1
+    "kubernetes.io/cluster/${var.aws_eks_name}-${local.environment}" = "shared"
+    "kubernetes.io/role/elb"                                         = 1
   }
 
   private_subnet_tags = {
-    "kubernetes.io/cluster/${var.aws_eks_name}" = "shared"
-    "kubernetes.io/role/internal-elb"           = 1
+    "kubernetes.io/cluster/${var.aws_eks_name}-${local.environment}" = "shared"
+    "kubernetes.io/role/internal-elb"                                = 1
   }
-
 }
 
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.23.0"
 
-  name               = var.aws_eks_name
+  name               = "${var.aws_eks_name}-${local.environment}"
   kubernetes_version = var.aws_eks_version
 
   enable_cluster_creator_admin_permissions = true
@@ -43,16 +51,24 @@ module "eks" {
 
   eks_managed_node_groups = {
     default = {
-      min_size     = 1
-      max_size     = 1
-      desired_size = 1
-
+      min_size       = 1
+      max_size       = 1
+      desired_size   = 1
       instance_types = var.eks_managed_node_groups_instance_types
 
-      tags = var.aws_project_tags
+      tags = merge(
+        var.aws_project_tags,
+        {
+          Environment = local.environment
+        }
+      )
     }
   }
 
-  tags = var.aws_project_tags
+  tags = merge(
+    var.aws_project_tags,
+    {
+      Environment = local.environment
+    }
+  )
 }
-

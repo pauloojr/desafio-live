@@ -8,6 +8,16 @@ on:
 
   workflow_dispatch:
     inputs:
+      environment:
+        description: "Escolha o ambiente"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - homolog
+          - prod
+
       action:
         description: "Escolha a ação"
         required: true
@@ -21,6 +31,9 @@ on:
 jobs:
   terraform:
     runs-on: ubuntu-latest
+
+    env:
+      TF_ENV: ${{ github.event.inputs.environment || 'dev' }}
 
     steps:
       - name: Checkout
@@ -50,6 +63,11 @@ jobs:
             -backend-config="key=${{ secrets.AWS_BUCKET_FILE }}" \
             -backend-config="region=us-east-1"
 
+      - name: Terraform Workspace
+        working-directory: ./src
+        run: |
+          terraform workspace select $TF_ENV || terraform workspace new $TF_ENV
+
       - name: Terraform Validate
         working-directory: ./src
         run: terraform validate
@@ -57,14 +75,14 @@ jobs:
       - name: Terraform Plan
         if: github.event_name == 'push' || github.event.inputs.action == 'plan'
         working-directory: ./src
-        run: terraform plan
+        run: terraform plan -var-file="envs/${TF_ENV}.tfvars"
 
       - name: Terraform Apply
         if: github.event.inputs.action == 'apply'
         working-directory: ./src
-        run: terraform apply -auto-approve
+        run: terraform apply -auto-approve -var-file="envs/${TF_ENV}.tfvars"
 
       - name: Terraform Destroy
         if: github.event.inputs.action == 'destroy'
         working-directory: ./src
-        run: terraform destroy -auto-approve
+        run: terraform destroy -auto-approve -var-file="envs/${TF_ENV}.tfvars"
