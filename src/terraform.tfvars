@@ -14,7 +14,7 @@ aws_eks_name = "live-eks"
 
 aws_eks_version = "1.32"
 
-eks_managed_node_groups_instance_types = ["t2.micro"]
+eks_managed_node_groups_instance_types = ["t3.micro"]
 
 aws_project_tags = { terraform = "true"
   environment = "producao"
